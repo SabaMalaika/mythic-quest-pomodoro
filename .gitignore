@@ -1,0 +1,16 @@
+# Build output
+dist/
+pomodoro-quest.html
+
+# Legacy generated layers (replaced by src/images/)
+layers/
+src/layers/
+
+# Duplicate with spaces in name
+src/images/Dragon Sprite Sheet.png
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/

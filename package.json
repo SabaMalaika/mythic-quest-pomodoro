@@ -1,0 +1,8 @@
+{
+  "name": "mythic-quest-pomodoro",
+  "version": "0.1.0",
+  "scripts": {
+    "dev":   "npx serve .",
+    "build": "node build-standalone.js"
+  }
+}

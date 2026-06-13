@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mythic Quest · Pomodoro</title>
+  <link rel="stylesheet" href="src/css/variables.css"/>
+  <link rel="stylesheet" href="src/css/base.css"/>
+  <link rel="stylesheet" href="src/css/timer.css"/>
+</head>
+<body>
+
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- Full panel -->
+  <div id="timer-panel">
+    <div id="drag-bar">
+      <span id="panel-title">◈ MYTHIC QUEST</span>
+      <button id="minimize-btn" title="Minimise">—</button>
+    </div>
+
+    <div id="mode-tabs">
+      <button class="mode-btn active" data-mode="focus">Focus</button>
+      <button class="mode-btn" data-mode="short">Short</button>
+      <button class="mode-btn" data-mode="long">Long</button>
+    </div>
+
+    <div id="timer-display" aria-live="off">25:00</div>
+
+    <div id="progress-wrap"><div id="progress-bar"></div></div>
+
+    <div id="controls">
+      <button id="reset-btn"    title="Reset (R)">↺</button>
+      <button id="start-btn"    title="Start / Pause (Space)">START</button>
+      <button id="settings-btn" title="Settings">⚙</button>
+    </div>
+
+    <div id="sessions-row">
+      <span id="gems"></span>
+      <span id="session-count"></span>
+    </div>
+  </div>
+
+  <!-- Minimised pill -->
+  <div id="mini-pill" hidden>
+    <span id="mini-time">25:00</span>
+    <button id="mini-start" title="Start / Pause">▶</button>
+    <button id="mini-expand" title="Expand">▲</button>
+  </div>
+
+  <div id="status-bar">■ THE HEROINE RESTS</div>
+
+  <!-- Settings overlay -->
+  <div id="settings-panel" hidden>
+    <h3>Settings</h3>
+    <label>Focus
+      <input type="number" id="set-focus" min="1" max="99" value="25"/>
+      <span>min</span>
+    </label>
+    <label>Short break
+      <input type="number" id="set-short" min="1" max="30" value="5"/>
+      <span>min</span>
+    </label>
+    <label>Long break
+      <input type="number" id="set-long" min="1" max="60" value="15"/>
+      <span>min</span>
+    </label>
+    <div class="settings-actions">
+      <button id="settings-close">✕ Close</button>
+      <button id="settings-save">Save</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/js/main.js"></script>
+</body>
+</html>

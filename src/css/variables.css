@@ -1,0 +1,36 @@
+:root {
+  /* Base */
+  --bg: #02030e;
+
+  /* Panel — deep space with purple tint */
+  --panel-bg:     rgba(6, 8, 24, 0.88);
+  --panel-border: rgba(80, 160, 200, 0.22);
+  --panel-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 16px 48px rgba(0,0,0,0.75);
+
+  /* Accent — teal/cyan (matches bioluminescence in scene) */
+  --teal:         #38d4c4;
+  --teal-dim:     rgba(56, 212, 196, 0.35);
+  --teal-glow:    rgba(56, 212, 196, 0.18);
+
+  /* Accent — purple (matches forest and sky) */
+  --purple:       #9060d0;
+  --purple-dim:   rgba(144, 96, 208, 0.35);
+
+  /* Text */
+  --text-primary: rgba(220, 240, 255, 0.92);
+  --text-dim:     rgba(130, 190, 210, 0.55);
+  --text-faint:   rgba(80,  140, 160, 0.32);
+
+  /* Danger (pause) */
+  --red-bg:     rgba(100, 20, 40, 0.6);
+  --red-border: rgba(220, 60, 80, 0.45);
+  --red-text:   rgba(255, 140, 150, 0.92);
+
+  /* Typography */
+  --font-display: 'Courier New', 'Courier', monospace;
+  --font-body:    'Georgia', serif;
+
+  /* Shape */
+  --radius:    8px;
+  --radius-sm: 4px;
+}
