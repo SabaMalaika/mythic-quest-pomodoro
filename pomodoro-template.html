@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mythic Quest Pomodoro</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{width:100vw;height:100vh;overflow:hidden;background:#020a08;font-family:'Georgia',serif}
+  canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+  #ui{position:absolute;top:18px;left:50%;transform:translateX(-50%);text-align:center;z-index:10;
+      background:rgba(2,10,6,0.42);border:1px solid rgba(80,200,120,0.2);border-radius:8px;
+      padding:14px 40px 16px;backdrop-filter:blur(14px);min-width:280px;
+      box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 0 1px rgba(0,0,0,0.3)}
+  #modes{display:flex;gap:3px;justify-content:center;margin-bottom:10px}
+  .mode-btn{padding:5px 14px;border-radius:4px;cursor:pointer;font-size:10px;letter-spacing:1.5px;
+            text-transform:uppercase;font-family:'Courier New',monospace;transition:all 0.2s;
+            background:transparent;border:1px solid rgba(60,140,80,0.25);color:rgba(100,180,100,0.45)}
+  .mode-btn.active{background:rgba(40,120,60,0.45);border-color:rgba(100,220,120,0.45);color:rgba(200,255,180,0.95)}
+  #timer{font-size:64px;font-weight:bold;color:rgba(210,255,200,0.92);letter-spacing:5px;
+         line-height:1;font-family:'Courier New',monospace;
+         text-shadow:0 0 24px rgba(80,220,100,0.55),0 0 48px rgba(40,180,60,0.3)}
+  #progress-wrap{width:100%;height:2px;background:rgba(30,70,40,0.4);border-radius:1px;margin:10px 0 13px;overflow:hidden}
+  #progress-bar{height:100%;width:0%;background:linear-gradient(90deg,rgba(50,160,70,0.8),rgba(120,255,120,0.95));
+                transition:width 0.5s linear;box-shadow:0 0 8px rgba(100,255,80,0.7)}
+  #controls{display:flex;gap:8px;justify-content:center;margin-bottom:11px}
+  #start-btn{padding:10px 36px;border-radius:4px;cursor:pointer;font-size:12px;letter-spacing:2px;
+             text-transform:uppercase;font-family:'Courier New',monospace;
+             background:rgba(30,110,40,0.55);border:1px solid rgba(80,200,80,0.45);
+             color:rgba(180,255,160,0.9);transition:all 0.2s}
+  #start-btn.paused{background:rgba(120,30,30,0.55);border-color:rgba(220,80,60,0.45);color:rgba(255,160,140,0.9)}
+  #reset-btn{padding:10px 18px;border-radius:4px;cursor:pointer;font-size:16px;
+             background:rgba(10,28,14,0.4);border:1px solid rgba(50,100,60,0.3);
+             color:rgba(100,180,100,0.55);transition:all 0.2s}
+  #sessions{font-size:11px;color:rgba(120,200,100,0.5);letter-spacing:1px}
+  #status{position:absolute;bottom:14px;left:16px;color:rgba(70,150,60,0.32);
+          font-size:10px;letter-spacing:2px;font-family:'Courier New',monospace;z-index:10}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="ui">
+  <div id="modes">
+    <button class="mode-btn active" data-mode="pomodoro">Focus</button>
+    <button class="mode-btn" data-mode="short">Short</button>
+    <button class="mode-btn" data-mode="long">Long</button>
+  </div>
+  <div id="timer">25:00</div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="controls">
+    <button id="start-btn">START</button>
+    <button id="reset-btn">↺</button>
+  </div>
+  <div id="sessions"><span id="gems">◇◇◇◇</span> <span id="count" style="color:rgba(80,140,70,0.4)">(0)</span></div>
+</div>
+<div id="status">■ THE HEROINE RESTS</div>
+
+<script>
+const DURATIONS = {pomodoro:25*60,short:5*60,long:15*60}
+const SPEEDS    = [0, 0.04, 0.12, 0.28, 0.65]  // parallax scroll speeds per layer
+
+// ── Load images ───────────────────────────────────────────────────────────────
+const LAYERS_B64 = [
+  '__LAYER1__',
+  '__LAYER2__',
+  '__LAYER3__',
+  '__LAYER4__',
+  '__LAYER5__',
+]
+const imgs = LAYERS_B64.map((b64, i) => {
+  const img = new Image()
+  img.src = 'data:image/png;base64,' + b64
+  return img
+})
+
+// ── Hero pixel sprite (upscaled, female mage) ─────────────────────────────────
+const PX = 5
+const PAL = {1:'#f2c5a0',2:'#7a3020',3:'#b04030',4:'#5a6aa0',5:'#3a4a70',6:'#7888c8',7:'#484878',8:'#6a4020',9:'#d4a020',10:'#2a1810',11:'#eeeeff',12:'#181630',13:'#9860b0',14:'#8b6030',15:'#40e0d0'}
+const FRAMES = [
+  [[0,0,0,4,4,4,4,5,0,0,0,0],[0,0,4,4,4,4,5,5,5,0,0,0],[0,0,5,4,4,5,5,0,0,0,0,0],[0,0,0,1,1,1,1,0,0,0,0,0],[0,0,2,1,1,1,2,2,0,0,0,0],[0,2,3,1,1,3,2,0,0,0,0,0],[0,11,6,6,6,6,9,13,0,0,14,0],[0,6,6,6,6,6,6,13,0,14,0,0],[0,6,8,8,8,8,6,0,14,0,0,0],[0,7,6,6,6,6,7,0,0,0,0,0],[0,7,6,9,6,9,7,0,0,0,0,0],[0,0,7,6,6,7,0,0,0,0,0,0],[0,0,7,6,6,7,0,0,0,0,0,0],[0,0,7,7,7,7,0,0,0,0,0,0],[0,10,10,0,10,10,0,0,0,0,0,0]],
+  [[0,0,0,4,4,4,4,5,0,0,0,0],[0,0,4,4,4,4,5,5,5,0,0,0],[0,0,5,4,4,5,5,0,0,0,0,0],[0,0,0,1,1,1,1,0,0,0,0,0],[0,0,2,1,1,1,2,2,0,0,0,0],[0,2,3,1,1,3,2,0,0,0,0,0],[0,11,6,6,6,6,9,13,0,0,14,0],[0,6,6,6,6,6,6,13,0,14,0,0],[0,6,8,8,8,8,6,0,14,0,0,0],[0,7,6,6,6,6,7,0,0,0,0,0],[0,7,6,9,6,9,7,0,0,0,0,0],[0,7,7,6,6,7,0,0,0,0,0,0],[0,7,6,6,7,0,0,0,0,0,0,0],[10,7,0,0,7,7,0,0,0,0,0,0],[10,0,0,0,10,10,0,0,0,0,0,0]],
+  [[0,0,0,4,4,4,4,5,0,0,0,0],[0,0,4,4,4,4,5,5,5,0,0,0],[0,0,5,4,4,5,5,0,0,0,0,0],[0,0,0,1,1,1,1,0,0,0,0,0],[0,0,2,1,1,1,2,2,0,0,0,0],[0,2,3,1,1,3,2,0,0,0,0,0],[0,11,6,6,6,6,9,13,0,0,14,0],[0,6,6,6,6,6,6,13,0,14,0,0],[0,6,8,8,8,8,6,0,14,0,0,0],[0,7,6,6,6,6,7,0,0,0,0,0],[0,7,6,9,6,9,7,0,0,0,0,0],[0,0,7,6,6,7,0,0,0,0,0,0],[0,0,7,6,6,7,0,0,0,0,0,0],[0,0,7,7,7,7,0,0,0,0,0,0],[0,10,10,0,10,10,0,0,0,0,0,0]],
+  [[0,0,0,4,4,4,4,5,0,0,0,0],[0,0,4,4,4,4,5,5,5,0,0,0],[0,0,5,4,4,5,5,0,0,0,0,0],[0,0,0,1,1,1,1,0,0,0,0,0],[0,0,2,1,1,1,2,2,0,0,0,0],[0,2,3,1,1,3,2,0,0,0,0,0],[0,11,6,6,6,6,9,13,0,0,14,0],[0,6,6,6,6,6,6,13,0,14,0,0],[0,6,8,8,8,8,6,0,14,0,0,0],[0,7,6,6,6,6,7,0,0,0,0,0],[0,7,6,9,6,9,7,0,0,0,0,0],[0,7,7,6,6,0,0,0,0,0,0,0],[0,0,7,6,6,7,7,0,0,0,0,0],[0,0,7,7,0,0,7,7,0,0,0,0],[0,0,10,10,0,0,10,10,0,0,0,0]],
+]
+
+function drawHero(ctx, x, y, frame, idle) {
+  const fi = idle ? 0 : Math.floor(frame / 7) % 4
+  const sp = FRAMES[fi]
+  for (let r = 0; r < sp.length; r++)
+    for (let c = 0; c < sp[r].length; c++) {
+      const v = sp[r][c]; if (!v) continue
+      ctx.fillStyle = PAL[v]
+      ctx.fillRect(x + c*PX, y + r*PX, PX, PX)
+    }
+  // gem glow on staff
+  const gx = x + 10*PX, gy = y + 6*PX
+  ctx.save()
+  ctx.globalAlpha = 0.45 + Math.sin(Date.now()*0.004)*0.3
+  const g = ctx.createRadialGradient(gx,gy,0,gx,gy,16)
+  g.addColorStop(0,'rgba(80,255,220,0.9)'); g.addColorStop(1,'rgba(0,0,0,0)')
+  ctx.fillStyle = g; ctx.fillRect(gx-16,gy-16,32,32)
+  ctx.restore()
+}
+
+// ── Dragon ────────────────────────────────────────────────────────────────────
+function drawDragon(ctx, x, y, t, fire) {
+  ctx.save()
+  const wf = Math.sin(t*0.008)*0.45
+  // body
+  ctx.fillStyle='#7a1010'
+  ctx.beginPath(); ctx.ellipse(x,y+18,24,13,0,0,Math.PI*2); ctx.fill()
+  // wings
+  ctx.fillStyle='rgba(90,12,12,0.88)'
+  ctx.save(); ctx.translate(x,y+14); ctx.rotate(-wf)
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.bezierCurveTo(-22,-32,-58,-22,-64,8); ctx.bezierCurveTo(-42,4,-16,10,0,0); ctx.fill(); ctx.restore()
+  ctx.save(); ctx.translate(x,y+14); ctx.rotate(wf)
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.bezierCurveTo(22,-32,58,-22,64,8); ctx.bezierCurveTo(42,4,16,10,0,0); ctx.fill(); ctx.restore()
+  // head/neck
+  ctx.fillStyle='#8b1212'; ctx.beginPath(); ctx.ellipse(x-30,y+15,10,7,-0.4,0,Math.PI*2); ctx.fill()
+  ctx.fillStyle='#9a1818'; ctx.beginPath(); ctx.ellipse(x-44,y+13,13,9,-0.25,0,Math.PI*2); ctx.fill()
+  ctx.fillStyle='#ffd000'; ctx.beginPath(); ctx.ellipse(x-50,y+10,3.5,2.5,0,0,Math.PI*2); ctx.fill()
+  ctx.fillStyle='#200'; ctx.beginPath(); ctx.arc(x-50,y+10,1.5,0,Math.PI*2); ctx.fill()
+  // tail
+  ctx.strokeStyle='#6a0e0e'; ctx.lineWidth=5
+  ctx.beginPath(); ctx.moveTo(x+22,y+20); ctx.bezierCurveTo(x+44,y+34,x+58,y+14,x+68,y+28); ctx.stroke()
+  // fire
+  if (fire) {
+    for (let i=0;i<14;i++) {
+      const fx=x-56-i*9+Math.random()*6, fy=y+13+(Math.random()-0.5)*12, fr=Math.max(0,7-i*0.45)
+      const fg=ctx.createRadialGradient(fx,fy,0,fx,fy,fr+6)
+      fg.addColorStop(0,'rgba(255,255,160,0.95)'); fg.addColorStop(0.4,'rgba(255,110,10,0.7)'); fg.addColorStop(1,'rgba(255,30,0,0)')
+      ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(fx,fy,fr+6,0,Math.PI*2); ctx.fill()
+    }
+  }
+  ctx.restore()
+}
+
+// ── Firefly particles ─────────────────────────────────────────────────────────
+const flies = Array.from({length:55},()=>({
+  x:Math.random()*2560, y:80+Math.random()*900,
+  vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.3,
+  phase:Math.random()*Math.PI*2, size:1.4+Math.random()*2.2,
+  hue:80+Math.floor(Math.random()*60)
+}))
+
+function updateFlies(W, H, dt, running) {
+  for (const f of flies) {
+    if (running) f.x -= dt*0.012
+    f.x += f.vx; f.y += f.vy
+    f.vx += (Math.random()-0.5)*0.08; f.vy += (Math.random()-0.5)*0.06
+    f.vx*=0.97; f.vy*=0.97
+    if (f.x<-20) f.x=W+20
+    if (f.y<60||f.y>H*0.88) f.vy*=-1
+  }
+}
+
+function drawFlies(ctx, t) {
+  for (const f of flies) {
+    const a = (Math.sin(t*0.005+f.phase)*0.5+0.5)*(0.4+Math.sin(t*0.009+f.phase*2)*0.4)
+    if (a<0.05) continue
+    ctx.save(); ctx.globalAlpha=a
+    const g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.size*4)
+    g.addColorStop(0,`hsl(${f.hue},100%,85%)`); g.addColorStop(1,'rgba(0,0,0,0)')
+    ctx.fillStyle=g; ctx.fillRect(f.x-f.size*4,f.y-f.size*4,f.size*8,f.size*8)
+    ctx.restore()
+  }
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c')
+const ctx = canvas.getContext('2d')
+ctx.imageSmoothingEnabled = true
+ctx.imageSmoothingQuality = 'high'
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1
+  canvas.width  = window.innerWidth  * dpr
+  canvas.height = window.innerHeight * dpr
+  canvas.style.width  = window.innerWidth  + 'px'
+  canvas.style.height = window.innerHeight + 'px'
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+}
+resize()
+window.addEventListener('resize', resize)
+
+const W = () => window.innerWidth
+const H = () => window.innerHeight
+
+let scroll = 0, heroFrame = 0, running = false, flash = 0
+let dragon = null, lastEvent = 0
+let lastTime = 0
+
+function triggerEvent() {
+  const w = W(), h = H()
+  if (!dragon && Math.random()<0.6) dragon={x:w+100,y:h*0.12,t:0,fire:false}
+}
+
+function drawLayer(img, layerIdx, offsetX) {
+  if (!img.complete || !img.naturalWidth) return
+  const w = W(), h = H()
+  const iw = img.naturalWidth, ih = img.naturalHeight
+  // scale to cover full height
+  const scale = h / ih
+  const sw = iw * scale
+  // tile horizontally
+  const ox = ((offsetX % sw) + sw) % sw
+  for (let x = -ox; x < w + sw; x += sw) {
+    ctx.drawImage(img, x, 0, sw, h)
+  }
+}
+
+function render(time) {
+  const dt = Math.min(time - lastTime, 50)
+  lastTime = time
+  const w = W(), h = H()
+
+  // BG always scrolls
+  scroll += dt * 0.18
+  updateFlies(w, h, dt, true)
+  if (time - lastEvent > 16000 + Math.random()*8000) { lastEvent=time; triggerEvent() }
+  if (dragon) {
+    dragon.x -= dt * 0.07
+    dragon.t = time
+    dragon.fire = Math.abs(dragon.x - w*0.22) < 140
+    if (dragon.x < -160) dragon = null
+  }
+  if (running) heroFrame++
+
+  ctx.clearRect(0, 0, w, h)
+
+  // draw layers with parallax
+  drawLayer(imgs[0], 0, scroll * SPEEDS[0])   // sky - static
+  drawLayer(imgs[1], 1, scroll * SPEEDS[1])   // mountains
+  drawLayer(imgs[2], 2, scroll * SPEEDS[2])   // far trees
+  drawLayer(imgs[3], 3, scroll * SPEEDS[3])   // mid ruins
+  // foreground layer last so hero is behind it... actually draw hero before fg
+  // ground layer
+  drawLayer(imgs[4], 4, scroll * SPEEDS[4])   // fg flowers
+
+  // fireflies
+  drawFlies(ctx, time)
+
+  // dragon
+  if (dragon) drawDragon(ctx, dragon.x, dragon.y, time, dragon.fire)
+
+  // hero
+  const heroX = Math.floor(w * 0.22) - 30
+  const heroY = Math.floor(h * 0.64) - 75
+  ctx.save()
+  ctx.globalAlpha = 0.15
+  ctx.fillStyle = '#000'
+  ctx.beginPath(); ctx.ellipse(heroX+30, h*0.64+2, 22, 5, 0, 0, Math.PI*2); ctx.fill()
+  ctx.restore()
+  drawHero(ctx, heroX, heroY, heroFrame, !running)
+
+  // vignette
+  const vig = ctx.createRadialGradient(w/2,h/2,h*0.28,w/2,h/2,h*0.95)
+  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,4,2,0.6)')
+  ctx.fillStyle=vig; ctx.fillRect(0,0,w,h)
+
+  // flash
+  if (flash>0) {
+    ctx.fillStyle=`rgba(180,255,160,${flash})`
+    ctx.fillRect(0,0,w,h)
+    flash-=0.016
+  }
+
+  requestAnimationFrame(render)
+}
+requestAnimationFrame(render)
+
+// ── Timer logic ───────────────────────────────────────────────────────────────
+let mode='pomodoro', timeLeft=DURATIONS.pomodoro, sessions=0, timerInterval=null, lastTick=0
+
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function updateUI(){
+  document.getElementById('timer').textContent=fmt(timeLeft)
+  document.getElementById('progress-bar').style.width=((1-timeLeft/DURATIONS[mode])*100)+'%'
+  const g='◆'.repeat(sessions%4)+'◇'.repeat(4-sessions%4)
+  document.getElementById('gems').innerHTML=
+    [...g].map((c,i)=>`<span style="color:${i<sessions%4?'rgba(200,240,80,0.85)':'rgba(50,90,40,0.4)'};margin:0 2px">${c}</span>`).join('')
+  document.getElementById('count').textContent=`(${sessions})`
+  document.getElementById('status').textContent=running?'► THE QUEST CONTINUES...':'■ THE HEROINE RESTS'
+}
+
+function startTimer(){
+  lastTick=Date.now()
+  timerInterval=setInterval(()=>{
+    const now=Date.now(), d=Math.floor((now-lastTick)/1000)
+    if(d>=1){lastTick=now; timeLeft-=d; if(timeLeft<=0){
+      timeLeft=0; updateUI(); stopTimer()
+      if(mode==='pomodoro'){sessions++; flash=0.7; if(!dragon)dragon={x:W()+100,y:H()*0.12,t:0,fire:true}}
+      setTimeout(()=>{timeLeft=DURATIONS[mode];updateUI()},1200)
+    } else updateUI()}
+  },200)
+}
+function stopTimer(){clearInterval(timerInterval);timerInterval=null}
+
+document.getElementById('start-btn').addEventListener('click',()=>{
+  running=!running
+  const btn=document.getElementById('start-btn')
+  btn.textContent=running?'PAUSE':'START'
+  btn.className=running?'paused':''
+  if(running) startTimer(); else stopTimer()
+  updateUI()
+})
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  stopTimer(); running=false; timeLeft=DURATIONS[mode]
+  document.getElementById('start-btn').textContent='START'
+  document.getElementById('start-btn').className=''
+  updateUI()
+})
+document.querySelectorAll('.mode-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    stopTimer(); running=false
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'))
+    btn.classList.add('active')
+    mode=btn.dataset.mode; timeLeft=DURATIONS[mode]
+    document.getElementById('start-btn').textContent='START'
+    document.getElementById('start-btn').className=''
+    updateUI()
+  })
+})
+updateUI()
+</script>
+</body>
+</html>
