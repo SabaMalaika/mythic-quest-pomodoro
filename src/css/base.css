@@ -30,8 +30,9 @@ button {
   left: 16px;
   z-index: 10;
   color: var(--text-faint);
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-size: 7px;
+  letter-spacing: 1px;
   font-family: var(--font-display);
   pointer-events: none;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.9);
 }

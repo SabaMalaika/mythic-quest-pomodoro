@@ -27,8 +27,8 @@
   --red-text:   rgba(255, 140, 150, 0.92);
 
   /* Typography */
-  --font-display: 'Courier New', 'Courier', monospace;
-  --font-body:    'Georgia', serif;
+  --font-display: 'Press Start 2P', 'Courier New', monospace;
+  --font-body:    'Press Start 2P', 'Courier New', monospace;
 
   /* Shape */
   --radius:    8px;

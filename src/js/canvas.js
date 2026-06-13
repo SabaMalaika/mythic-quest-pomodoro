@@ -8,6 +8,8 @@ const LAYERS = [
   { path: 'src/images/midground.png',  speed: 0.06  },
   { path: 'src/images/foreground.png', speed: 0.12  },
 ]
+// Hero is drawn between LAYER_HERO_AFTER and foreground (last layer)
+const LAYER_FOREGROUND = 3
 
 const canvas = document.getElementById('bg-canvas')
 const ctx    = canvas.getContext('2d')
@@ -115,24 +117,30 @@ function render(time) {
     scene.dragon.t  = time
     if (scene.dragon.x < -200) scene.dragon = null
   }
-  if (scene.running) scene.heroFrame++
+  scene.heroFrame++
 
   ctx.clearRect(0, 0, W, H)
-  layerCache.forEach((cache, i) => drawLayer(cache, LAYERS[i].speed))
-  drawFlies(ctx, time)
 
-  if (scene.dragon) drawDragon(ctx, scene.dragon.x, scene.dragon.y, time)
+  // sky, background, midground
+  for (let i = 0; i < LAYER_FOREGROUND; i++) drawLayer(layerCache[i], LAYERS[i].speed)
 
-  const heroX = Math.floor(W * 0.48) - 30
-  const heroY = Math.floor(H * 0.68) - 75
+  // hero between midground and foreground
+  const heroX = Math.floor(W * 0.50)
+  const heroY = Math.floor(H * 0.78)
   ctx.save()
-  ctx.globalAlpha = 0.10
+  ctx.globalAlpha = 0.18
   ctx.fillStyle   = '#000'
   ctx.beginPath()
-  ctx.ellipse(heroX + 30, H * 0.68 + 2, 22, 5, 0, 0, Math.PI * 2)
+  ctx.ellipse(heroX, heroY + 3, 20, 4, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
   drawHero(ctx, heroX, heroY, scene.heroFrame, !scene.running)
+
+  // foreground on top of hero
+  drawLayer(layerCache[LAYER_FOREGROUND], LAYERS[LAYER_FOREGROUND].speed)
+  drawFlies(ctx, time)
+
+  if (scene.dragon) drawDragon(ctx, scene.dragon.x, scene.dragon.y, time)
 
   if (vigCache) ctx.drawImage(vigCache, 0, 0)
 

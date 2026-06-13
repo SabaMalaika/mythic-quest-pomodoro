@@ -6,8 +6,9 @@ pomodoro-quest.html
 layers/
 src/layers/
 
-# Duplicate with spaces in name
+# Duplicates with spaces in name
 src/images/Dragon Sprite Sheet.png
+src/images/Women Walking Sprite.png
 
 # macOS
 .DS_Store
