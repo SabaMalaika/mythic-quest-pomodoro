@@ -13,6 +13,9 @@ const miniStart   = document.getElementById('mini-start')
 const miniExpand  = document.getElementById('mini-expand')
 const timerDisplay  = document.getElementById('timer-display')
 const progressBar   = document.getElementById('progress-bar')
+const progressPct   = document.getElementById('progress-pct')
+const progressLabel = document.getElementById('progress-label')
+const panelTitle    = document.getElementById('panel-title')
 const startBtn      = document.getElementById('start-btn')
 const resetBtn      = document.getElementById('reset-btn')
 const settingsBtn   = document.getElementById('settings-btn')
@@ -20,7 +23,6 @@ const settingsPanel = document.getElementById('settings-panel')
 const modeBtns      = document.querySelectorAll('.mode-btn')
 const gemsEl        = document.getElementById('gems')
 const countEl       = document.getElementById('session-count')
-const statusEl      = document.getElementById('status-bar')
 const setFocus      = document.getElementById('set-focus')
 const setShort      = document.getElementById('set-short')
 const setLong       = document.getElementById('set-long')
@@ -39,6 +41,12 @@ function updateUI() {
 
   const pct = (1 - timer.timeLeft / timer.total) * 100
   progressBar.style.width = pct + '%'
+  progressPct.textContent = Math.floor(pct) + '%'
+
+  const MODE_TITLES = { focus: '>> FOCUS QUEST', short: '>> SHORT REST', long: '>> LONG REST' }
+  const MODE_LABELS = { focus: 'QUEST PROGRESS', short: 'REST PROGRESS', long: 'REST PROGRESS' }
+  panelTitle.textContent    = MODE_TITLES[timer.mode]
+  progressLabel.textContent = MODE_LABELS[timer.mode]
 
   const filled = timer.sessions % 4
   gemsEl.innerHTML = Array.from({ length: 4 }, (_, i) =>
@@ -48,7 +56,6 @@ function updateUI() {
   countEl.textContent = `(${timer.sessions})`
 
   const running = timer.running
-  statusEl.textContent   = running ? '► THE QUEST CONTINUES...' : '■ THE HEROINE RESTS'
   startBtn.textContent   = running ? 'PAUSE' : 'START'
   startBtn.className     = running ? 'paused' : ''
   miniStart.textContent  = running ? '⏸' : '▶'

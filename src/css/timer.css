@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  width: 300px;
+  width: 320px;
   background: rgba(4, 6, 20, 0.94);
   border: 3px solid var(--teal);
   box-shadow:
@@ -115,26 +115,91 @@
   image-rendering: pixelated;
 }
 
-/* ── Progress bar — pixel segments ──────────────────────────────────────── */
+/* ── Progress bar — RPG pixel health bar ─────────────────────────────────── */
 #progress-wrap {
-  margin: 8px 10px;
-  height: 6px;
-  background: rgba(20,30,60,0.8);
-  border: 1px solid rgba(56,212,196,0.2);
+  margin: 6px 10px 10px;
+}
+
+#progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 6px;
+  color: rgba(56,212,196,0.45);
+  margin-bottom: 5px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.8);
+}
+
+#progress-track {
+  position: relative;
+  height: 16px;
+  background: rgba(4, 8, 28, 0.95);
+  border: 2px solid rgba(56,212,196,0.4);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6);
   overflow: hidden;
 }
+
+/* Decorative tick marks on the track */
+#progress-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 23px,
+    rgba(56,212,196,0.08) 23px,
+    rgba(56,212,196,0.08) 25px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
 #progress-bar {
   height: 100%;
   width: 0%;
+  /* Pixel segments: solid blocks with 2px gaps */
   background: repeating-linear-gradient(
     90deg,
-    var(--teal) 0px,
-    var(--teal) 6px,
-    transparent 6px,
-    transparent 8px
+    var(--purple)  0px,
+    #7050e0       30%,
+    var(--teal)   100%
   );
-  transition: width 0.5s steps(20, end);
+  mask-image: repeating-linear-gradient(
+    90deg,
+    black  0px,
+    black  9px,
+    transparent 9px,
+    transparent 11px
+  );
+  -webkit-mask-image: repeating-linear-gradient(
+    90deg,
+    black  0px,
+    black  9px,
+    transparent 9px,
+    transparent 11px
+  );
+  transition: width 0.8s steps(26, end);
   image-rendering: pixelated;
+}
+
+/* Spark blink at leading edge */
+#progress-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: #fff;
+  opacity: 0.9;
+  animation: spark 0.4s steps(1, end) infinite;
+}
+
+@keyframes spark {
+  0%, 100% { opacity: 0.9; }
+  50%       { opacity: 0;   }
 }
 
 /* ── Controls ────────────────────────────────────────────────────────────── */
@@ -161,7 +226,8 @@
 #settings-btn {
   width: 36px;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 17px;
+  font-family: 'Courier New', monospace;
   color: rgba(80,130,160,0.6);
   display: flex;
   align-items: center;

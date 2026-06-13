@@ -6,7 +6,7 @@ const LAYERS = [
   { path: 'src/images/sky.png',        speed: 0     },
   { path: 'src/images/background.png', speed: 0.025 },
   { path: 'src/images/midground.png',  speed: 0.06  },
-  { path: 'src/images/foreground.png', speed: 0.12  },
+  { path: 'src/images/foreground.png', speed: 0.08  },
 ]
 // Hero is drawn between LAYER_HERO_AFTER and foreground (last layer)
 const LAYER_FOREGROUND = 3
@@ -20,6 +20,18 @@ let dpr = window.devicePixelRatio || 1
 
 let layerCache = LAYERS.map(() => null)
 let vigCache   = null
+
+// ── Lightning state (declared here — before resize() call) ────────────────────
+const BOLT_BLOCK  = 6
+let bolt          = null
+let nextBoltIn    = 5000 + Math.random() * 8000
+let lastBoltTime  = -99999   // fire first bolt quickly
+
+// ── Grain state (declared here — before resize() call) ────────────────────────
+const GRAIN_BLOCK  = 2
+const GRAIN_FRAMES = 6
+let grainPool = []
+let grainIdx  = 0
 
 function buildCache(img) {
   const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight)
@@ -68,9 +80,14 @@ function resize() {
     if (img.complete && img.naturalWidth) layerCache[i] = buildCache(img)
   })
   buildVignette()
+  buildGrain()
 }
 window.addEventListener('resize', resize)
 resize()
+
+// Tap/click anywhere triggers a lightning bolt
+canvas.addEventListener('click',      spawnBolt)
+canvas.addEventListener('touchstart', spawnBolt, { passive: true })
 
 export const scene = {
   scroll:    0,
@@ -93,6 +110,76 @@ function drawLayer(cache, speed) {
 function maybeTriggerDragon(t) {
   if (!scene.dragon && Math.random() < 0.6)
     scene.dragon = { x: W + 160, y: H * 0.15, t }
+}
+
+// ── 8-bit lightning ───────────────────────────────────────────────────────────
+function spawnBolt() {
+  const x0 = W * 0.15 + Math.random() * W * 0.7
+  const pts = [[Math.round(x0 / BOLT_BLOCK) * BOLT_BLOCK, 0]]
+  let x = pts[0][0], y = 0
+  for (let i = 0; i < 10; i++) {
+    x += (Math.random() > 0.5 ? 1 : -1) * BOLT_BLOCK * (1 + Math.floor(Math.random() * 3))
+    y += BOLT_BLOCK * (2 + Math.floor(Math.random() * 3))
+    pts.push([Math.round(x / BOLT_BLOCK) * BOLT_BLOCK, Math.round(y / BOLT_BLOCK) * BOLT_BLOCK])
+    if (y > H * 0.48) break
+  }
+  bolt = { pts, frame: 0 }
+}
+
+function drawBolt() {
+  if (!bolt) return
+  const { pts, frame } = bolt
+  const alphas = [1, 0.85, 0.6, 0.35, 0.15, 0.05]
+  const alpha  = alphas[frame] ?? 0
+  if (alpha === 0) { bolt = null; return }
+
+  ctx.save()
+  ctx.imageSmoothingEnabled = false
+
+  // sky flash
+  if (frame < 2) {
+    ctx.fillStyle = `rgba(210,230,255,${frame === 0 ? 0.22 : 0.10})`
+    ctx.fillRect(0, 0, W, H * 0.7)
+  }
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1, y1] = pts[i], [x2, y2] = pts[i + 1]
+    const dx = x2 - x1, dy = y2 - y1
+    const steps = Math.max(1, Math.max(Math.abs(dx), Math.abs(dy)) / BOLT_BLOCK)
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps
+      const px = Math.round((x1 + dx * t) / BOLT_BLOCK) * BOLT_BLOCK
+      const py = Math.round((y1 + dy * t) / BOLT_BLOCK) * BOLT_BLOCK
+      // wide glow halo
+      ctx.fillStyle = `rgba(160,210,255,${alpha * 0.4})`
+      ctx.fillRect(px - BOLT_BLOCK * 2, py - BOLT_BLOCK, BOLT_BLOCK * 5, BOLT_BLOCK * 3)
+      // bright core (2×2 blocks)
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`
+      ctx.fillRect(px, py, BOLT_BLOCK * 2, BOLT_BLOCK * 2)
+    }
+  }
+  ctx.restore()
+  bolt.frame++
+}
+
+// ── Film grain (pre-rendered pixel noise frames) ──────────────────────────────
+function buildGrain() {
+  const gw = Math.ceil(W / GRAIN_BLOCK)
+  const gh = Math.ceil(H / GRAIN_BLOCK)
+  grainPool = Array.from({ length: GRAIN_FRAMES }, () => {
+    const gc = document.createElement('canvas')
+    gc.width = gw; gc.height = gh
+    const gx = gc.getContext('2d')
+    const id = gx.createImageData(gw, gh)
+    const d  = id.data
+    for (let i = 0; i < d.length; i += 4) {
+      const v = Math.random() * 255
+      d[i] = d[i+1] = d[i+2] = v
+      d[i+3] = Math.floor(Math.random() * 180)
+    }
+    gx.putImageData(id, 0, 0)
+    return gc
+  })
 }
 
 const TARGET_MS = 1000 / 30
@@ -119,10 +206,22 @@ function render(time) {
   }
   scene.heroFrame++
 
+  // lightning trigger (random)
+  if (time - lastBoltTime > nextBoltIn) {
+    lastBoltTime = time
+    nextBoltIn   = 6000 + Math.random() * 10000
+    spawnBolt()
+  }
+
   ctx.clearRect(0, 0, W, H)
 
-  // sky, background, midground
-  for (let i = 0; i < LAYER_FOREGROUND; i++) drawLayer(layerCache[i], LAYERS[i].speed)
+  // sky
+  drawLayer(layerCache[0], LAYERS[0].speed)
+  // lightning lives in the sky, behind mountains
+  drawBolt()
+  // background, midground
+  drawLayer(layerCache[1], LAYERS[1].speed)
+  drawLayer(layerCache[2], LAYERS[2].speed)
 
   // hero between midground and foreground
   const heroX = Math.floor(W * 0.50)
@@ -148,6 +247,16 @@ function render(time) {
     ctx.fillStyle = `rgba(100,220,255,${scene.flash.toFixed(3)})`
     ctx.fillRect(0, 0, W, H)
     scene.flash -= 0.016
+  }
+
+  // grain — topmost layer
+  if (grainPool.length) {
+    grainIdx = (grainIdx + 1) % GRAIN_FRAMES
+    ctx.save()
+    ctx.globalAlpha = 0.09
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(grainPool[grainIdx], 0, 0, W, H)
+    ctx.restore()
   }
 }
 
